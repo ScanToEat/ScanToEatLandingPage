@@ -230,101 +230,48 @@ const StepPhoneStatic: React.FC<{ step: StepData; className?: string }> = ({ ste
   );
 };
 
-/* ── MOBILE: contenido de un paso (texto + teléfono juntos), centrado ── */
-const CrossfadeStep: React.FC<{ step: StepData; number: number }> = ({ step, number }) => (
-  <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-2">
-    <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold mb-4 bg-primary-dark text-white">
-      <span className="w-5 h-5 rounded-full bg-white/25 flex items-center justify-center text-xs">{number}</span>
-      {step.tag}
-    </div>
-
-    <h3 className="text-2xl sm:text-3xl font-bold text-neutral-darkest leading-tight mb-2">
-      {step.title}
-      <span className="text-primary-dark whitespace-nowrap">{step.titleAccent}</span>
-    </h3>
-    <p className="text-sm sm:text-base text-neutral-dark leading-relaxed max-w-xs mb-5">{step.description}</p>
-
-    <StepPhoneStatic step={step} />
-  </div>
-);
-
-/* ── MOBILE: escenario fijo + crossfade manejado por scroll ──
- * Track alto + escenario "sticky". El progreso (a: 0…n-1) hace que el paso
- * activo se desvanezca y entre el siguiente, texto y teléfono juntos.
- */
-const MobileSteps: React.FC = () => {
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const [a, setA] = useState(0);
-  const n = steps.length;
-
-  useEffect(() => {
-    let raf = 0;
-    const compute = () => {
-      raf = 0;
-      const el = wrapRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const total = el.offsetHeight - window.innerHeight;
-      const scrolled = Math.min(Math.max(-rect.top, 0), total);
-      const p = total > 0 ? scrolled / total : 0;
-      setA(p * (n - 1));
-    };
-    const onScroll = () => { if (!raf) raf = requestAnimationFrame(compute); };
-    compute();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, [n]);
-
-  // Meseta + desvanecido: cada paso queda 100% visible un tramo, y el que
-  // sale llega a opacity 0 justo cuando el que entra arranca desde 0.
-  // HOLD + FADE = 0.5 → el cruce se toca exactamente en 0, sin superposición.
-  const HOLD = 0.2;
-  const FADE = 0.3;
-  const stepStyle = (i: number): React.CSSProperties => {
-    const d = i - a;                       // 0 = activo; el signo indica arriba/abajo
-    const dist = Math.abs(d);
-    const vis = dist <= HOLD ? 1 : dist >= HOLD + FADE ? 0 : 1 - (dist - HOLD) / FADE;
-    return {
-      opacity: vis,
-      transform: `translateY(${d * 40}px) scale(${0.94 + vis * 0.06})`,
-      zIndex: vis > 0.5 ? 20 : 10,
-      pointerEvents: vis > 0.9 ? 'auto' : 'none',
-    };
-  };
-
-  const activeIdx = Math.round(a);
+/* ── MOBILE: tarjeta de un paso (texto + teléfono), apilada ── */
+const MobileStep: React.FC<{ step: StepData; number: number }> = ({ step, number }) => {
+  const anim = useScrollAnimation({ animation: 'fade-up', threshold: 0.15 });
 
   return (
-    <div ref={wrapRef} className="relative" style={{ height: `${n * 85}vh` }}>
-      <div className="sticky top-0 h-screen pt-16 pb-8 flex flex-col items-center justify-center overflow-hidden">
-        <div className="relative w-full max-w-sm mx-auto flex-1 max-h-[600px]">
-          {steps.map((step, i) => (
-            <div key={i} className="absolute inset-0 will-change-transform" style={stepStyle(i)}>
-              <CrossfadeStep step={step} number={i + 1} />
-            </div>
-          ))}
-        </div>
-
-        {/* Progreso */}
-        <div className="flex items-center justify-center gap-2 mt-4">
-          {steps.map((_, i) => (
-            <span
-              key={i}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                i === activeIdx ? 'w-7 bg-primary-dark' : 'w-2 bg-neutral-light'
-              }`}
-            />
-          ))}
-        </div>
+    <div ref={anim.ref} className="flex flex-col items-center text-center">
+      <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold mb-4 bg-primary-dark text-white">
+        <span className="w-5 h-5 rounded-full bg-white/25 flex items-center justify-center text-xs">{number}</span>
+        {step.tag}
       </div>
+
+      <h3 className="text-2xl sm:text-3xl font-bold text-neutral-darkest leading-tight mb-3 text-balance">
+        {step.title}
+        <span className="text-primary-dark whitespace-nowrap">{step.titleAccent}</span>
+      </h3>
+
+      <p className="text-base text-neutral-dark leading-relaxed max-w-sm mb-6">{step.description}</p>
+
+      <div className="flex flex-col gap-3 w-fit mx-auto text-left mb-8">
+        {step.highlights.map((h, i) => (
+          <div key={i} className="flex items-center gap-3" title={h.text}>
+            <div className="w-9 h-9 rounded-lg bg-primary-light/15 flex items-center justify-center flex-shrink-0">
+              <IconEl name={h.icon} type={h.iconType} style={{ fontSize: '20px', color: COLORS.primary.DEFAULT }} title={h.text} />
+            </div>
+            <span className="text-sm sm:text-base text-neutral-dark font-medium">{h.text}</span>
+          </div>
+        ))}
+      </div>
+
+      <StepPhoneStatic step={step} />
     </div>
   );
 };
+
+/* ── MOBILE: los pasos, uno debajo del otro ── */
+const MobileSteps: React.FC = () => (
+  <div className="flex flex-col gap-20 sm:gap-24 pb-4">
+    {steps.map((step, i) => (
+      <MobileStep key={i} step={step} number={i + 1} />
+    ))}
+  </div>
+);
 
 /* ── Main section ── */
 const HowItWorksSection: React.FC = () => {
