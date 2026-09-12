@@ -81,3 +81,10 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* ─── Tipografía de títulos: Clash Display ─── */
+h1, h2, h3, h4,
+.font-display {
+  font-family: 'Clash Display', 'Poppins', sans-serif;
+  letter-spacing: -0.01em;
+}
